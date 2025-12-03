@@ -74,7 +74,7 @@ body {
   margin-bottom: 15px;
   padding: 10px;
   background: #fff;
-  border-radius: 6px;
+  border-radius: 5px;
   border: 1px solid #e0e0e0;
 }
 
@@ -83,7 +83,7 @@ body {
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  font-size: 1em;
+  font-size: 1.1em;
   color: #666;
   user-select: none;
 }
@@ -137,7 +137,7 @@ body {
   color: #fff;
   text-align: center;
   padding: 10px 12px;
-  border-radius: 6px;
+  border-radius: 5px;
   font-size: 0.85em;
   line-height: 1.4;
   z-index: 1000;
@@ -196,16 +196,15 @@ button {
   background: #1976d2;
   color: #fff;
   border: none;
-  border-radius: 6px;
+  border-radius: 5px;
   padding: 10px 0;
-  font-size: 1em;
-  font-weight: 500;
+  font-size: 1.1em;
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(33, 150, 243, 0.08);
   transition: background 0.2s, box-shadow 0.2s;
-  letter-spacing: 0.01em;
   outline: none;
-  min-width: 110px;
+  min-width: 120px;
+  font-weight: 500;
 }
 
 button:hover, button:focus {
@@ -242,5 +241,5 @@ button:hover, button:focus {
 @media (max-width: 350px) {
   body { padding: 8px; width: 100%; min-width: unset; }
   h3 { font-size: 1.5em; }
-  button, input[type="number"] { font-size: 0.95em; }
+  button, input[type="number"] { font-size: 1.1em; }
 }
