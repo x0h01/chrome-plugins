@@ -2,8 +2,8 @@ body {
   font-family: 'Roboto', Arial, sans-serif;
   background: #fafafa;
   margin: 0;
-  padding: 0px;
-  width: 320px;
+  padding: 10px;
+  width: 240px;
   box-sizing: border-box;
 }
 
@@ -71,7 +71,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
   padding: 10px;
   background: #fff;
   border-radius: 5px;
@@ -162,7 +162,7 @@ body {
 }
 
 h3 {
-  color: #666666;
+  color: #333333;
   margin: 20px;
   font-size: 1.5em;
   text-align: center;
@@ -177,13 +177,13 @@ h3 {
 
 input[type="number"] {
   background: #fff;
-  border: 1.5px solid #ccc;
+  border: 1px solid #ccc;
   border-radius: 5px;
-  padding: 9px 12px;
-  font-size: 1em;
+  padding: 7px;
+  font-size: 1.4em;
   outline: none;
   transition: border-color 0.2s;
-  width: 70px;
+  width: 60px;
   box-sizing: border-box;
   margin: 0;
 }
@@ -203,7 +203,7 @@ button {
   box-shadow: 0 2px 6px rgba(33, 150, 243, 0.08);
   transition: background 0.2s, box-shadow 0.2s;
   outline: none;
-  min-width: 120px;
+  min-width: 130px;
   font-weight: 500;
 }
 
@@ -218,11 +218,11 @@ button:hover, button:focus {
 
 .footer-links {
     display: flex;
+    align-items: center;
+    justify-content: center;
     gap: 1px;
-    flex-wrap: wrap;
     margin-top: 20px;
     margin-bottom: 5px;
-    text-align: center;
 }
 
 .footer-link {
@@ -236,10 +236,4 @@ button:hover, button:focus {
   opacity: 1;
   color: #1976d2;
   text-decoration: underline;
-}
-
-@media (max-width: 350px) {
-  body { padding: 8px; width: 100%; min-width: unset; }
-  h3 { font-size: 1.5em; }
-  button, input[type="number"] { font-size: 1.1em; }
 }
