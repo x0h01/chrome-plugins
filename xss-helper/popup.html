@@ -1,53 +1,51 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>XSS Helper</title>
-  <link href="https://fonts.googleapis.com/css?family=Roboto:400,500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/popup.css">
+    <title>XSS Helper</title>
+    <link href="https://fonts.googleapis.com/css?family=Roboto:400,500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/popup.css">
 </head>
 <body>
-  <h3>XSS Helper</h3>
+    <h3>XSS Helper</h3>
   
-  <div class="loading-container" id="loadingContainer">
-    <div class="progress-bar-container">
-      <div class="progress-bar"></div>
+    <div class="loading-container" id="loadingContainer">
+        <div class="progress-bar-container">
+            <div class="progress-bar"></div>
+        </div>
+        <div class="loading-text">Loading XSS payloads...</div>
     </div>
-    <div class="loading-text">Loading XSS payloads...</div>
-  </div>
+
+    <div class="error-message" id="errorMessage"></div>
+
+    <div class="content-container" id="contentContainer">
+        <div class="settings">
+            <div class="settings-row">
+                <div class="tooltip-wrapper">
+                    <label><input type="checkbox" id="useRemote">Use data from GitHub</label>
+                    <span class="tooltip-icon" tabindex="0">?</span>
+                    <span class="tooltip-text">
+                        <strong>Checked:</strong> Use full XSS payload list fetched from GitHub (around 450 kB).<br>
+                        <strong>Unchecked:</strong> Use shorter local payload list stored with extension (around 180 kB).
+                    </span>
+                </div>
+            </div>
+            <div class="settings-row">
+                <label><input type="checkbox" id="removeLineBreaks">Remove line breaks</label>
+            </div>
+        </div>
+        <div class="row">
+            <input type="number" id="numLines" min="1" max="100" value="5">
+            <button id="copyRandom">Copy X lines</button>
+        </div>
+        <div class="row">
+            <button id="copyAll">Copy All Lines</button>
+        </div>
+        <div class="footer-links">
+            <a class="footer-link" href="https://github.com/x0h01/" target="_blank" rel="noopener">by @x0h01</a>
+            <a class="footer-link" href="https://github.com/payloadbox/xss-payload-list" target="_blank" rel="noopener">using @payloadbox/xss-payload-list</a>
+        </div>
+    </div>
   
-  <div class="error-message" id="errorMessage"></div>
-  
-  <div class="content-container" id="contentContainer">
-    <div class="settings-row">
-      <div class="tooltip-wrapper">
-        <label>
-          <input type="checkbox" id="useRemote">
-          Use data from GitHub
-        </label>
-        <span class="tooltip-icon" tabindex="0">?</span>
-        <span class="tooltip-text">
-          <strong>Checked:</strong> Use full XSS payload list fetched from GitHub (around 450 kB).<br>
-          <strong>Unchecked:</strong> Use shorter local payload list stored with extension (around 180 kB).
-        </span>
-      </div>
-    </div>
-    <div class="settings-row">
-      <label>
-        <input type="checkbox" id="removeLineBreaks">
-        Remove line breaks
-      </label>
-    </div>
-    <div class="row">
-      <input type="number" id="numLines" min="1" max="100" value="5">
-      <button id="copyRandom">Copy X lines</button>
-    </div>
-    <button id="copyAll">Copy All Lines</button>
-      <div class="footer-links">
-          <a class="footer-link" href="https://github.com/x0h01/" target="_blank" rel="noopener">by @x0h01</a>
-          <a class="footer-link" href="https://github.com/payloadbox/xss-payload-list" target="_blank" rel="noopener">using @payloadbox/xss-payload-list</a>
-      </div>
-  </div>
-  
-  <script src="js/popup.js"></script>
+    <script src="js/popup.js"></script>
 </body>
 </html>
