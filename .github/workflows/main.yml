@@ -31,12 +31,11 @@ jobs:
           VERSION=${{ steps.extract.outputs.version }}
           
           if [ -f "$EXTENSION/CHANGELOG.md" ]; then
-            # Extract the section for this version
-            # This finds content between ## [version] and the next ## heading
-            awk "/## \[${VERSION#v}\]/,/^## \[/" "$EXTENSION/CHANGELOG.md" | sed '/^## \['"${VERSION#v}"'\]/d; $d' > release_notes.md
+            # Extract the section for this version (find content between ## [version] and the next ## heading)
+            awk '/## \['"${VERSION_NUMBER}"'\]/{flag=1; next} /^## \[/{flag=0} flag' "$EXTENSION/CHANGELOG.md" > release_notes.md
           
             # Check if we extracted anything
-            if [ !  -s release_notes.md ]; then
+            if [ ! -s release_notes.md ]; then
               echo "⚠️ No changelog entry found for version ${VERSION#v}" > release_notes.md
               echo "" >> release_notes.md
               echo "Please update $EXTENSION/CHANGELOG.md" >> release_notes.md
