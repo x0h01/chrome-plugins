@@ -14,8 +14,6 @@ jobs:
     steps:
       - name: Checkout code
         uses:  actions/checkout@v3
-        with:
-          fetch-depth:  0  # Fetch all history for all tags
 
       - name: Extract extension name and version
         id: extract
@@ -27,43 +25,45 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
-      - name: Generate changelog
-        id: changelog
+      - name:  Extract changelog for this version
         run: |
           EXTENSION=${{ steps.extract.outputs.extension }}
-          CURRENT_TAG=${{ steps.extract.outputs.tag }}
+          VERSION=${{ steps.extract.outputs.version }}
           
-          # Find the previous tag for this extension
-          PREVIOUS_TAG=$(git tag -l "${EXTENSION}/v*" --sort=-v:refname | grep -v "^${CURRENT_TAG}$" | head -n 1)
+          if [ -f "$EXTENSION/CHANGELOG.md" ]; then
+            # Extract the section for this version
+            # This finds content between ## [version] and the next ## heading
+            awk "/## \[${VERSION#v}\]/,/^## \[/" "$EXTENSION/CHANGELOG.md" | sed '/^## \['"${VERSION#v}"'\]/d; $d' > release_notes.md
           
-          if [ -z "$PREVIOUS_TAG" ]; then
-            echo "## 🎉 Initial Release" > changelog.md
-            echo "" >> changelog.md
-            echo "### All Changes" >> changelog.md
-            git log --pretty=format:"- %s (%h)" -- $EXTENSION >> changelog.md
+            # Check if we extracted anything
+            if [ !  -s release_notes.md ]; then
+              echo "⚠️ No changelog entry found for version ${VERSION#v}" > release_notes.md
+              echo "" >> release_notes.md
+              echo "Please update $EXTENSION/CHANGELOG.md" >> release_notes.md
+            fi
           else
-            echo "## Changes since ${PREVIOUS_TAG}" > changelog.md
-            echo "" >> changelog.md
-            git log ${PREVIOUS_TAG}..${CURRENT_TAG} --pretty=format:"- %s (%h)" -- $EXTENSION >> changelog. md
+            echo "⚠️ No CHANGELOG.md found in $EXTENSION/" > release_notes.md
           fi
           
-          # Output for use in release
-          echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          cat changelog.md >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          # Add installation instructions
+          echo "" >> release_notes.md
+          echo "---" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### 📦 Installation" >> release_notes.md
+          echo "Download the zip file below and load it as an unpacked extension in Chrome." >> release_notes. md
 
       - name: Create zip file
         run: |
           cd ${{ steps.extract.outputs.extension }}
-          zip -r ../${{ steps.extract.outputs.extension }}-${{ steps.extract.outputs.version }}.zip .  \
-            -x "*.git*" "node_modules/*" "*.DS_Store" "*. md" "package*.json"
+          zip -r ../${{ steps.extract.outputs.extension }}-${{ steps. extract.outputs.version }}.zip . \
+            -x "*. git*" "node_modules/*" "*.DS_Store" "*.md" "package*.json"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          files:  ${{ steps.extract.outputs.extension }}-${{ steps.extract.outputs.version }}.zip
+          files:  ${{ steps.extract.outputs. extension }}-${{ steps.extract.outputs.version }}.zip
           tag_name: ${{ steps.extract.outputs.tag }}
           name: ${{ steps.extract.outputs.extension }} ${{ steps.extract.outputs.version }}
-          body: ${{ steps.changelog.outputs.changelog }}
+          body_path: release_notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
