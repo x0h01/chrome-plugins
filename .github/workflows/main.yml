@@ -3,17 +3,19 @@ name: Build and Release Extensions
 on:
   push:
     tags:
-      - '*/v*' # to match any tag like xss-helper/v1.1
+      - '*/v*'
 
 permissions:
-  contents: write  # allow creating releases
+  contents: write
 
 jobs:
-  release: 
+  release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses:  actions/checkout@v3
+        with:
+          fetch-depth:  0  # Fetch all history for all tags
 
       - name: Extract extension name and version
         id: extract
@@ -25,26 +27,41 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
-      - name: Create zip file
-        run: |
-          cd ${{ steps.extract.outputs.extension }}
-          zip -r ../${{ steps.extract.outputs.extension }}-${{ steps.extract.outputs.version }}.zip .  \
-            -x "*.git*" "*.DS_Store" "*.md" "package*.json"
-
       - name: Generate changelog
         id: changelog
         run: |
           EXTENSION=${{ steps.extract.outputs.extension }}
-          if [ -f "$EXTENSION/CHANGELOG.md" ]; then
-            echo "changelog<<EOF" >> $GITHUB_OUTPUT
-            cat $EXTENSION/CHANGELOG.md >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+          CURRENT_TAG=${{ steps.extract.outputs.tag }}
+          
+          # Find the previous tag for this extension
+          PREVIOUS_TAG=$(git tag -l "${EXTENSION}/v*" --sort=-v:refname | grep -v "^${CURRENT_TAG}$" | head -n 1)
+          
+          if [ -z "$PREVIOUS_TAG" ]; then
+            echo "## 🎉 Initial Release" > changelog.md
+            echo "" >> changelog.md
+            echo "### All Changes" >> changelog.md
+            git log --pretty=format:"- %s (%h)" -- $EXTENSION >> changelog.md
+          else
+            echo "## Changes since ${PREVIOUS_TAG}" > changelog.md
+            echo "" >> changelog.md
+            git log ${PREVIOUS_TAG}..${CURRENT_TAG} --pretty=format:"- %s (%h)" -- $EXTENSION >> changelog. md
           fi
+          
+          # Output for use in release
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          cat changelog.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create zip file
+        run: |
+          cd ${{ steps.extract.outputs.extension }}
+          zip -r ../${{ steps.extract.outputs.extension }}-${{ steps.extract.outputs.version }}.zip .  \
+            -x "*.git*" "node_modules/*" "*.DS_Store" "*. md" "package*.json"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          files: ${{ steps.extract.outputs.extension }}-${{ steps.extract.outputs.version }}.zip
+          files:  ${{ steps.extract.outputs.extension }}-${{ steps.extract.outputs.version }}.zip
           tag_name: ${{ steps.extract.outputs.tag }}
           name: ${{ steps.extract.outputs.extension }} ${{ steps.extract.outputs.version }}
           body: ${{ steps.changelog.outputs.changelog }}
