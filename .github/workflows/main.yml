@@ -28,11 +28,22 @@ jobs:
           zip -r .. /${{ steps.extract.outputs.extension }}-${{ steps.extract.outputs.version }}.zip .  \
             -x "*.git*" "*.DS_Store" "*.md" "package*.json"
 
+      - name: Generate changelog
+        id: changelog
+        run: |
+          EXTENSION=${{ steps.extract.outputs.extension }}
+          if [ -f "$EXTENSION/CHANGELOG.md" ]; then
+            echo "changelog<<EOF" >> $GITHUB_OUTPUT
+            cat $EXTENSION/CHANGELOG.md >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           files: ${{ steps.extract.outputs.extension }}-${{ steps.extract.outputs.version }}.zip
           tag_name: ${{ steps.extract.outputs.tag }}
           name: ${{ steps.extract.outputs.extension }} ${{ steps.extract.outputs.version }}
+          body: ${{ steps.changelog.outputs.changelog }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
