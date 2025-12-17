@@ -32,7 +32,7 @@ jobs:
           
           if [ -f "$EXTENSION/CHANGELOG.md" ]; then
             # Extract the section for this version (find content between ## [version] and the next ## heading)
-            awk '/## \['"${VERSION}"'\]/{flag=1; next} /^## \[/{flag=0} flag' "$EXTENSION/CHANGELOG.md" > release_notes.md
+            awk '/## \['"${VERSION#v}"'\]/{flag=1; next} /^## \[/{flag=0} flag' "$EXTENSION/CHANGELOG.md" > release_notes.md
 
           else
             echo "⚠️ No CHANGELOG.md found in $EXTENSION/" > release_notes.md
