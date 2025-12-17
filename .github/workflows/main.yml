@@ -5,6 +5,9 @@ on:
     tags:
       - '*/v*' # to match any tag like xss-helper/v1.1
 
+permissions:
+  contents: write  # allow creating releases
+
 jobs:
   release: 
     runs-on: ubuntu-latest
