@@ -94,7 +94,6 @@ function updateCopyRandomLabel() {
 }
 
 function temporarilyChangeButtonLabel(button, newLabel, resetLabelFunc) {
-  const originalLabel = button.textContent;
   button.textContent = newLabel;
   button.disabled = true;
   setTimeout(() => {
@@ -107,17 +106,21 @@ function temporarilyChangeButtonLabel(button, newLabel, resetLabelFunc) {
 async function savePreferences() {
   const useRemote = document.getElementById('useRemote').checked;
   const removeLineBreaks = document.getElementById('removeLineBreaks').checked;
-  await chrome.storage.local.set({ useRemote, removeLineBreaks });
+  const numLines = document.getElementById('numLines').value;
+  await chrome.storage.local.set({ useRemote, removeLineBreaks, numLines });
 }
 
 // Load preferences from storage
 async function loadPreferences() {
-  const result = await chrome.storage.local.get(['useRemote', 'removeLineBreaks']);
+  const result = await chrome.storage.local.get(['useRemote', 'removeLineBreaks', 'numLines']);
   if (result.useRemote !== undefined) {
     document.getElementById('useRemote').checked = result.useRemote;
   }
   if (result.removeLineBreaks !== undefined) {
     document.getElementById('removeLineBreaks').checked = result.removeLineBreaks;
+  }
+  if (result.numLines !== undefined) {
+    document.getElementById('numLines').value = result.numLines;
   }
 }
 
@@ -134,7 +137,10 @@ async function loadPreferences() {
 })();
 
 // Listen for changes to the number input
-document.getElementById('numLines').addEventListener('input', updateCopyRandomLabel);
+document.getElementById('numLines').addEventListener('input', async () => {
+  await savePreferences();
+  updateCopyRandomLabel();
+});
 
 // Listen for checkbox changes
 document.getElementById('useRemote').addEventListener('change', async () => {
