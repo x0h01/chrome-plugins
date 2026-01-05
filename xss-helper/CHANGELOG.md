@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.2] - 2026-01-06
+## [1.2] - 2026-01-05
 
 ### Updated
 - Removed fetching payloads from github, since the repo is not publicly available anymore.
