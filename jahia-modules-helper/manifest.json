@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Jahia Modules Helper",
+  "version": "1.0.0",
+  "description": "Bulk actions for the Jahia Administration > Modules page: show all rows, update modules, start newest versions, remove older versions.",
+  "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
+  "permissions": ["storage"],
+  "content_scripts": [
+    {
+      "matches": ["*://*/*settings.manageModules.html*"],
+      "js": ["js/content.js"],
+      "all_frames": true,
+      "run_at": "document_idle"
+    }
+  ]
+}
