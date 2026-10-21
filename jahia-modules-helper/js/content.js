@@ -261,8 +261,11 @@
     const updates = [], starts = [], removals = [], inactiveStarts = [], blocked = [];
     for (const m of mods) {
       const active = maxVer(m.active);
+      // Nothing running -> show the newest installed (stopped) version as the update source.
+      const installed = active || maxVer(m.inactive);
+      const from = installed && (active ? installed.ver : `${installed.ver} stopped`);
       for (const u of m.updates) {
-        updates.push({ type: 'update', module: m.id, label: m.name, ver: u.ver, from: active && active.ver, btn: u.btn });
+        updates.push({ type: 'update', module: m.id, label: m.name, ver: u.ver, from, btn: u.btn });
       }
       const newestAny = maxVer(m.inactive.filter((i) => !active || cmpVersion(i.ver, active.ver) > 0));
       if (newestAny && newestAny.missing) {

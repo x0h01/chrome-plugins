@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.1.1] - 2026-10-21
+
+### Fixed
+- Updates for a stopped module show the newest installed version (e.g. `2.4.0 stopped → 2.6.0`) instead of `? → 2.6.0`.
+
 ## [1.1] - 2026-10-21
 
 ### Added
