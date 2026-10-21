@@ -46,6 +46,8 @@
     if (!orphaned) {
       orphaned = true;
       document.removeEventListener('click', onClick, true);
+      document.removeEventListener('mouseover', onHover);
+      document.removeEventListener('mouseout', onHover);
       const panel = document.getElementById('jmh-panel');
       if (panel) panel.remove();
       // Sticky notice (not a toast) so it isn't missed; this script can no longer do anything else.
@@ -182,10 +184,26 @@
   }
 
   /**
+   * Read the dependencies that keep an inactive version from starting. Jahia then renders the
+   * start button disabled (and without its event name), with the missing ids in its tooltip.
+   * @param {Element} chip Inactive version chip.
+   * @returns {string[]|null} Missing module ids, or null when the version can be started.
+   */
+  function missingDeps(chip) {
+    const btn = [...chip.querySelectorAll('button[disabled]')].find((b) => b.querySelector('.startModule'));
+    const note = chip.querySelector('p.text-danger');
+    if (!btn && !note) return null;
+    const m = ((btn && btn.getAttribute('title')) || '').match(/dependencies \(([^)]*)\)/)
+      || txt(note).match(/Depends on:\s*(.*)$/);
+    return m ? m[1].split(',').map((s) => s.trim()).filter(Boolean) : [];
+  }
+
+  /**
    * Parse the visible table rows into modules and their version chips
    * (active / inactive / available update). Rows without version chips are skipped.
    * @returns {Object[]} `{name, id, active, inactive, updates}`; each chip is `{ver}` plus its
-   *   start / undeploy / install button where the page has one.
+   *   start / undeploy / install button where the page has one; inactive chips also carry
+   *   `missing` (see {@link missingDeps}).
    */
   function readModules() {
     const rows = [...document.querySelectorAll('table.dataTable tbody tr')];
@@ -207,6 +225,7 @@
             ver,
             startBtn: c.querySelector('button[name=_eventId_startModule]'),
             undeployBtn: c.querySelector('button[name=_eventId_undeployModule]'),
+            missing: missingDeps(c),
           });
         } else if (c.classList.contains('updateNotif')) {
           const btn = c.querySelector('button[name=_eventId_installModuleOnly]');
@@ -229,18 +248,31 @@
    * - updates: every available update chip;
    * - starts: the newest inactive version, if newer than the running one;
    * - removals: inactive versions older than the running one.
-   * Modules with no running version get no start/remove actions.
+   * - inactiveStarts: modules with no running version -> their newest startable version;
+   * - blocked: modules whose newest candidate version (newer than the running one, if any)
+   *   cannot start because of missing dependencies. Informational, no action.
    * Each action is `{type, module, label, ver, from|active, btn}`, where `btn` is the page button
-   * that performs it.
-   * @returns {{updates: Object[], starts: Object[], removals: Object[], total: number}}
+   * that performs it. Blocked entries are `{module, label, ver, missing: [{id, installed}]}`.
+   * @returns {{updates: Object[], starts: Object[], removals: Object[], inactiveStarts: Object[], blocked: Object[], total: number}}
    */
   function plan() {
     const mods = readModules();
-    const updates = [], starts = [], removals = [];
+    const ids = new Set(mods.map((m) => m.id));
+    const updates = [], starts = [], removals = [], inactiveStarts = [], blocked = [];
     for (const m of mods) {
       const active = maxVer(m.active);
       for (const u of m.updates) {
         updates.push({ type: 'update', module: m.id, label: m.name, ver: u.ver, from: active && active.ver, btn: u.btn });
+      }
+      const newestAny = maxVer(m.inactive.filter((i) => !active || cmpVersion(i.ver, active.ver) > 0));
+      if (newestAny && newestAny.missing) {
+        blocked.push({ module: m.id, label: m.name, ver: newestAny.ver,
+          missing: newestAny.missing.map((id) => ({ id, installed: ids.has(id) })) });
+      }
+      // Stopped module (nothing running) with a version that can start -> start the newest.
+      if (!active) {
+        const newest = maxVer(m.inactive.filter((i) => i.startBtn));
+        if (newest) inactiveStarts.push({ type: 'startInactive', module: m.id, label: m.name, ver: newest.ver, btn: newest.startBtn });
       }
       // Several versions installed and a newer one is not running -> start the newest.
       if (active) {
@@ -256,7 +288,7 @@
         }
       }
     }
-    return { updates, starts, removals, total: mods.length };
+    return { updates, starts, removals, inactiveStarts, blocked, total: mods.length };
   }
 
   /**
@@ -271,6 +303,7 @@
   const describe = (a) =>
     a.type === 'update' ? `Update ${a.module} ${a.from || '?'} → ${a.ver}`
     : a.type === 'start' ? `Start ${a.module} ${a.ver} (was ${a.from})`
+    : a.type === 'startInactive' ? `Start ${a.module} ${a.ver} (stopped)`
     : `Remove ${a.module} ${a.ver} (running ${a.active})`;
 
   /** Run mode → ordered list of {@link plan} phases to execute. */
@@ -279,6 +312,7 @@
     update: ['updates'],
     start: ['starts'],
     remove: ['removals'],
+    startInactive: ['inactiveStarts'],
   };
 
   /**
@@ -333,6 +367,9 @@
     let msg = (mode === 'all' ? 'Upgrade: ' : '') +
       `${actions.length} action(s) planned now:\n\n` + actions.map(describe).join('\n');
     if (mode === 'all') msg += '\n\nNew versions will then be started and old versions removed.';
+    if (mode === 'startInactive' && p.blocked.length) {
+      msg += '\n\nBlocked modules whose dependencies get started this way will be started too.';
+    }
     msg += '\n\nThe page will reload after each action. Continue?';
     if (!confirm(msg)) return;
     const run = { mode, attempted: {}, log: [], steps: 0, startedAt: Date.now(), lastStepAt: Date.now(), current: null };
@@ -405,6 +442,17 @@
   #jmh-panel .jmh-list{max-height:120px;overflow:auto;font-size:11px;color:#555;padding:0 10px 2px}
   #jmh-panel .jmh-list div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #jmh-panel .jmh-count{font-weight:400;opacity:.85;margin-left:6px}
+  #jmh-panel .jmh-tabs{display:flex;border-bottom:1px solid #e2e6ea;margin:-2px -12px 4px}
+  #jmh-panel button.jmh-tab{all:unset;flex:1;text-align:center;padding:5px 2px;font-size:12px;cursor:pointer;color:#555;border-bottom:2px solid transparent}
+  #jmh-panel button.jmh-tab:hover{background:#f1f3f5}
+  #jmh-panel button.jmh-tab.jmh-on{color:#00a0e3;border-bottom-color:#00a0e3;font-weight:600}
+  #jmh-panel .jmh-tab .jmh-tn{font-size:10px;margin-left:3px;padding:0 5px;border-radius:8px;background:#e2e6ea;color:#333}
+  #jmh-panel .jmh-tab .jmh-tn.jmh-warn{background:#d9534f;color:#fff}
+  #jmh-panel .jmh-list .jmh-miss{color:#c0392b}
+  #jmh-panel .jmh-list div[data-mod]{cursor:default;border-radius:3px}
+  #jmh-panel .jmh-list div[data-mod]:hover{background:#fff3cd;color:#222}
+  tr.jmh-hl > td{background:#fff3cd !important;box-shadow:inset 0 2px 0 #f0ad4e,inset 0 -2px 0 #f0ad4e}
+  #jmh-panel .jmh-hint{font-size:11px;color:#777}
   #jmh-toast{position:fixed;right:16px;bottom:16px;z-index:100000;background:#333;color:#fff;padding:8px 12px;border-radius:6px;font:13px sans-serif}
   `;
 
@@ -421,7 +469,10 @@
   }
 
   /** UI preferences, persisted under PREF_KEY. */
-  let prefs = { collapsed: false };
+  let prefs = { collapsed: false, tab: 'upgrade' };
+
+  /** Run mode → panel tab that shows its progress (default: 'upgrade'). */
+  const TAB_OF_MODE = { startInactive: 'inactive' };
 
   /** Inject the panel stylesheet into the page once. */
   function ensureStyle() {
@@ -453,30 +504,62 @@
     const busy = !!run;
     const listBox = (phase) => (p[phase].length ? `<div class="jmh-list" data-list="${phase}"></div>` : '');
     const upMods = new Set([...p.updates, ...p.starts, ...p.removals].map((a) => a.module)).size;
-    // Gray header when there is nothing to update, start or remove.
-    panel.classList.toggle('jmh-idle', !upMods && !busy);
-    panel.innerHTML = `
-      <header><span>Modules Helper: <span class="jmh-count" title="Upgradable out of total modules">${upMods} / ${p.total}</span></span><span>${prefs.collapsed && !run ? '▴' : '▾'}</span></header>
-      <div class="jmh-body">
+    // Modules with something to do on any tab (blocked ones have no action).
+    const actMods = new Set([...p.updates, ...p.starts, ...p.removals, ...p.inactiveStarts].map((a) => a.module)).size;
+    // Gray header when no module is actionable.
+    panel.classList.toggle('jmh-idle', !actMods && !busy);
+    // While a run is active, stay on the tab that shows its progress.
+    const tab = busy ? (TAB_OF_MODE[run.mode] || 'upgrade') : prefs.tab;
+    const tabBtn = (id, label, n, warn) =>
+      `<button class="jmh-tab ${tab === id ? 'jmh-on' : ''}" data-tab="${id}">${label}<span class="jmh-tn ${warn && n ? 'jmh-warn' : ''}">${n}</span></button>`;
+    const stopOr = (primary) => (busy ? '<button class="jmh-b jmh-stop" data-a="stop">Stop after current action</button>' : primary);
+    const tabBody = {
+      upgrade: `
         <button class="jmh-b" data-a="update" ${busy || !p.updates.length ? 'disabled' : ''}>Update modules <span class="jmh-n">${p.updates.length}</span></button>
         ${listBox('updates')}
         <button class="jmh-b" data-a="start" ${busy || !p.starts.length ? 'disabled' : ''}>Start newest versions <span class="jmh-n">${p.starts.length}</span></button>
         ${listBox('starts')}
         <button class="jmh-b" data-a="remove" ${busy || !p.removals.length ? 'disabled' : ''}>Remove older versions <span class="jmh-n">${p.removals.length}</span></button>
         ${listBox('removals')}
-        ${busy
-          ? '<button class="jmh-b jmh-stop" data-a="stop">Stop after current action</button>'
-          : `<button class="jmh-b jmh-primary" data-a="all" title="Update modules, start new versions, remove old versions" ${upMods ? '' : 'disabled'}>⤴ 1-click upgrade <span class="jmh-n">${upMods}</span></button>`}
+        ${stopOr(`<button class="jmh-b jmh-primary" data-a="all" title="Update modules, start new versions, remove old versions" ${upMods ? '' : 'disabled'}>⤴ 1-click upgrade <span class="jmh-n">${upMods}</span></button>`)}`,
+      inactive: `
+        <div class="jmh-hint">Stopped modules (no version running) that can be started.</div>
+        ${listBox('inactiveStarts')}
+        ${stopOr(`<button class="jmh-b jmh-primary" data-a="startInactive" ${p.inactiveStarts.length ? '' : 'disabled'}>▶ Start stopped modules <span class="jmh-n">${p.inactiveStarts.length}</span></button>`)}`,
+      blocked: p.blocked.length
+        ? `<div class="jmh-hint">Can't start: dependencies missing (red = not installed).</div>${listBox('blocked')}`
+        : '<div class="jmh-hint">No modules are blocked by missing dependencies.</div>',
+    };
+    panel.innerHTML = `
+      <header><span>Modules Helper: <span class="jmh-count" title="Actionable (upgrade or start stopped) out of total modules">${actMods} / ${p.total}</span></span><span>${prefs.collapsed && !run ? '▴' : '▾'}</span></header>
+      <div class="jmh-body">
+        <div class="jmh-tabs">
+          ${tabBtn('upgrade', 'Upgrade', upMods)}${tabBtn('inactive', 'Stopped', p.inactiveStarts.length)}${tabBtn('blocked', 'Blocked', p.blocked.length, true)}
+        </div>
+        ${tabBody[tab] || tabBody.upgrade}
         ${status ? `<div class="jmh-status"></div>` : ''}
         ${log && log.length ? `<div class="jmh-log"></div>` : ''}
       </div>`;
     for (const list of panel.querySelectorAll('.jmh-list')) {
       for (const a of p[list.dataset.list]) {
         const d = document.createElement('div');
-        d.textContent = a.type === 'update' ? `${a.module} ${a.from || '?'} → ${a.ver}`
-          : a.type === 'start' ? `${a.module} ${a.ver} (was ${a.from})`
-          : `${a.module} ${a.ver} (running ${a.active})`;
         d.title = a.label;
+        if (list.dataset.list === 'blocked') {
+          d.dataset.mod = a.module; // hover highlights the table row, see onHover
+          d.append(`${a.module} ${a.ver} — needs `);
+          a.missing.forEach((dep, i) => {
+            const s = document.createElement('span');
+            s.textContent = (i ? ', ' : '') + dep.id;
+            if (!dep.installed) s.className = 'jmh-miss';
+            d.appendChild(s);
+          });
+          d.title = `${a.label}\nNeeds: ${a.missing.map((x) => x.id + (x.installed ? ' (installed, stopped)' : ' (not installed)')).join(', ')}`;
+        } else {
+          d.textContent = a.type === 'update' ? `${a.module} ${a.from || '?'} → ${a.ver}`
+            : a.type === 'start' ? `${a.module} ${a.ver} (was ${a.from})`
+            : a.type === 'startInactive' ? `${a.module} ${a.ver}`
+            : `${a.module} ${a.ver} (running ${a.active})`;
+        }
         list.appendChild(d);
       }
     }
@@ -494,7 +577,8 @@
 
   /**
    * Document-level (capture) click handler for the panel: the header toggles collapse,
-   * "stop" flags the active run, and any other `data-a` button starts a run in that mode.
+   * a `data-tab` button switches tab, "stop" flags the active run, and any other `data-a`
+   * button starts a run in that mode.
    * @param {MouseEvent} e
    * @returns {Promise<void>}
    */
@@ -503,6 +587,12 @@
     if (!panel || !panel.contains(e.target)) return;
     if (e.target.closest('header')) {
       prefs.collapsed = !prefs.collapsed;
+      await store.set(PREF_KEY, prefs);
+      return renderPanel(await store.get(STORE_KEY));
+    }
+    const tabEl = e.target.closest('[data-tab]');
+    if (tabEl) {
+      prefs.tab = tabEl.dataset.tab;
       await store.set(PREF_KEY, prefs);
       return renderPanel(await store.get(STORE_KEY));
     }
@@ -518,6 +608,30 @@
     showAllRows(true);
     await sleep(300);
     startRun(a);
+  }
+
+  /** Module id whose table row is currently highlighted, or null. */
+  let hoverMod = null;
+
+  /**
+   * Document-level hover handler: while the pointer is over a panel list entry with `data-mod`,
+   * highlight that module's table row (scrolling it into view if needed); clear it otherwise.
+   * @param {MouseEvent} e mouseover or mouseout.
+   */
+  function onHover(e) {
+    const over = e.type === 'mouseout' ? e.relatedTarget : e.target;
+    const el = over && over.closest ? over.closest('#jmh-panel [data-mod]') : null;
+    const mod = el ? el.dataset.mod : null;
+    if (mod === hoverMod) return;
+    hoverMod = mod;
+    for (const tr of document.querySelectorAll('tr.jmh-hl')) tr.classList.remove('jmh-hl');
+    if (!mod) return;
+    const tr = [...document.querySelectorAll('tr[data-sel-role^="module-row-"]')]
+      .find((r) => r.dataset.selRole === 'module-row-' + mod);
+    if (tr) {
+      tr.classList.add('jmh-hl');
+      tr.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
   }
 
   // ---------- boot ----------
@@ -539,6 +653,8 @@
     showAllRows(!!run);
     await sleep(500);
     document.addEventListener('click', onClick, true);
+    document.addEventListener('mouseover', onHover);
+    document.addEventListener('mouseout', onHover);
     if (run) {
       renderPanel(run, 'Continuing…', run.log);
       await step(run);
