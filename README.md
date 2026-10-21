@@ -19,7 +19,7 @@ Adds a panel for bulk actions to the Jahia **Administration → Modules** page.
 
 - Always shows all rows in the modules table
 - Updates modules, starts the newest versions, and removes older versions
-- **1-click upgrade** runs update → start new → remove old for every module
+- **1-click upgrade** runs start stopped → update → start new → remove old for every module
 - Starts stopped modules in bulk, and lists modules blocked by missing dependencies
 - Shows the planned actions and asks for confirmation before running, and can be stopped while it runs
 

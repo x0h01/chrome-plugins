@@ -8,8 +8,11 @@
  */
 (() => {
   'use strict';
-  if (window.__jmhLoaded) return;
-  window.__jmhLoaded = true;
+  // Mark the shared DOM, not `window`: each installed copy of the extension gets its own
+  // `window`, so only a DOM marker stops a second copy from adding its own panel handlers.
+  const root = document.documentElement;
+  if (root.hasAttribute('data-jmh-loaded')) return;
+  root.setAttribute('data-jmh-loaded', '');
 
   const STORE_KEY = 'jmh_run_' + location.host;
   const PREF_KEY = 'jmh_prefs';
@@ -311,7 +314,7 @@
 
   /** Run mode → ordered list of {@link plan} phases to execute. */
   const PHASES = {
-    all: ['updates', 'starts', 'removals'],
+    all: ['inactiveStarts', 'updates', 'starts', 'removals'],
     update: ['updates'],
     start: ['starts'],
     remove: ['removals'],
@@ -370,7 +373,7 @@
     let msg = (mode === 'all' ? 'Upgrade: ' : '') +
       `${actions.length} action(s) planned now:\n\n` + actions.map(describe).join('\n');
     if (mode === 'all') msg += '\n\nNew versions will then be started and old versions removed.';
-    if (mode === 'startInactive' && p.blocked.length) {
+    if ((mode === 'startInactive' || mode === 'all') && p.blocked.length) {
       msg += '\n\nBlocked modules whose dependencies get started this way will be started too.';
     }
     msg += '\n\nThe page will reload after each action. Continue?';
@@ -474,8 +477,6 @@
   /** UI preferences, persisted under PREF_KEY. */
   let prefs = { collapsed: false, tab: 'upgrade' };
 
-  /** Run mode → panel tab that shows its progress (default: 'upgrade'). */
-  const TAB_OF_MODE = { startInactive: 'inactive' };
 
   /** Inject the panel stylesheet into the page once. */
   function ensureStyle() {
@@ -506,29 +507,26 @@
     const p = plan();
     const busy = !!run;
     const listBox = (phase) => (p[phase].length ? `<div class="jmh-list" data-list="${phase}"></div>` : '');
-    const upMods = new Set([...p.updates, ...p.starts, ...p.removals].map((a) => a.module)).size;
-    // Modules with something to do on any tab (blocked ones have no action).
+    // Modules with something to do (blocked ones have no action).
     const actMods = new Set([...p.updates, ...p.starts, ...p.removals, ...p.inactiveStarts].map((a) => a.module)).size;
     // Gray header when no module is actionable.
     panel.classList.toggle('jmh-idle', !actMods && !busy);
-    // While a run is active, stay on the tab that shows its progress.
-    const tab = busy ? (TAB_OF_MODE[run.mode] || 'upgrade') : prefs.tab;
+    // Runs always show their progress on the Upgrade tab.
+    const tab = busy || prefs.tab !== 'blocked' ? 'upgrade' : 'blocked';
     const tabBtn = (id, label, n, warn) =>
       `<button class="jmh-tab ${tab === id ? 'jmh-on' : ''}" data-tab="${id}">${label}<span class="jmh-tn ${warn && n ? 'jmh-warn' : ''}">${n}</span></button>`;
     const stopOr = (primary) => (busy ? '<button class="jmh-b jmh-stop" data-a="stop">Stop after current action</button>' : primary);
     const tabBody = {
       upgrade: `
+        <button class="jmh-b" data-a="startInactive" title="Stopped modules (no version running) that can be started" ${busy || !p.inactiveStarts.length ? 'disabled' : ''}>Start stopped modules <span class="jmh-n">${p.inactiveStarts.length}</span></button>
+        ${listBox('inactiveStarts')}
         <button class="jmh-b" data-a="update" ${busy || !p.updates.length ? 'disabled' : ''}>Update modules <span class="jmh-n">${p.updates.length}</span></button>
         ${listBox('updates')}
         <button class="jmh-b" data-a="start" ${busy || !p.starts.length ? 'disabled' : ''}>Start newest versions <span class="jmh-n">${p.starts.length}</span></button>
         ${listBox('starts')}
         <button class="jmh-b" data-a="remove" ${busy || !p.removals.length ? 'disabled' : ''}>Remove older versions <span class="jmh-n">${p.removals.length}</span></button>
         ${listBox('removals')}
-        ${stopOr(`<button class="jmh-b jmh-primary" data-a="all" title="Update modules, start new versions, remove old versions" ${upMods ? '' : 'disabled'}>⤴ 1-click upgrade <span class="jmh-n">${upMods}</span></button>`)}`,
-      inactive: `
-        <div class="jmh-hint">Stopped modules (no version running) that can be started.</div>
-        ${listBox('inactiveStarts')}
-        ${stopOr(`<button class="jmh-b jmh-primary" data-a="startInactive" ${p.inactiveStarts.length ? '' : 'disabled'}>▶ Start stopped modules <span class="jmh-n">${p.inactiveStarts.length}</span></button>`)}`,
+        ${stopOr(`<button class="jmh-b jmh-primary" data-a="all" title="Start stopped modules, update modules, start new versions, remove old versions" ${actMods ? '' : 'disabled'}>⤴ 1-click upgrade <span class="jmh-n">${actMods}</span></button>`)}`,
       blocked: p.blocked.length
         ? `<div class="jmh-hint">Can't start: dependencies missing (red = not installed).</div>${listBox('blocked')}`
         : '<div class="jmh-hint">No modules are blocked by missing dependencies.</div>',
@@ -537,7 +535,7 @@
       <header><span>Modules Helper: <span class="jmh-count" title="Actionable (upgrade or start stopped) out of total modules">${actMods} / ${p.total}</span></span><span>${prefs.collapsed && !run ? '▴' : '▾'}</span></header>
       <div class="jmh-body">
         <div class="jmh-tabs">
-          ${tabBtn('upgrade', 'Upgrade', upMods)}${tabBtn('inactive', 'Stopped', p.inactiveStarts.length)}${tabBtn('blocked', 'Blocked', p.blocked.length, true)}
+          ${tabBtn('upgrade', 'Upgrade', actMods)}${tabBtn('blocked', 'Blocked', p.blocked.length, true)}
         </div>
         ${tabBody[tab] || tabBody.upgrade}
         ${status ? `<div class="jmh-status"></div>` : ''}

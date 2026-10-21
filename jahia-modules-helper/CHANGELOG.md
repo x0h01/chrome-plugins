@@ -2,8 +2,13 @@
 
 ## [1.1.1] - 2026-10-21
 
+### Updated
+- Stopped modules moved from their own tab to the top of the **Upgrade** tab.
+- **⤴ 1-click upgrade** now starts stopped modules first, then updates, starts new versions and removes old ones.
+
 ### Fixed
 - Updates for a stopped module show the newest installed version (e.g. `2.4.0 stopped → 2.6.0`) instead of `? → 2.6.0`.
+- With two copies of the extension installed, only one runs on the page, so confirmations are no longer shown twice.
 
 ## [1.1] - 2026-10-21
 
